@@ -1,19 +1,16 @@
+# src/models/deep_learning_model.py
 from tensorflow import keras
 from keras import layers
+from scikeras.wrappers import KerasClassifier
 
-
-def build_nn(input_dim):
-
+def build_model(input_shape):
     model = keras.Sequential([
-        keras.Input(shape=(input_dim,)),
-        layers.Dense(32, activation="relu"),
-        layers.Dense(1, activation="sigmoid")
+        keras.Input(shape=(input_shape,)),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(1, activation='sigmoid')
     ])
-
-    model.compile(
-        optimizer="adam",
-        loss="binary_crossentropy",
-        metrics=["accuracy"]
-    )
-
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
+
+def build_keras_classifier(input_shape, epochs=100, batch_size=16):
+    return KerasClassifier(model=lambda: build_model(input_shape), epochs=epochs, batch_size=batch_size, verbose=0)
