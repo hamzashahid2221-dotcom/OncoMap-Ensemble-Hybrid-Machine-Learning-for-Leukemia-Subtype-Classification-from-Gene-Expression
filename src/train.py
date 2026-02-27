@@ -1,51 +1,43 @@
-from sklearn.metrics import classification_report
-from sklearn.model_selection import cross_val_score
+# src/train.py
+from data_loader import load_training_data
+from preprocessing import build_preprocessor, encode_target, split_data
+from models.svm_model import build_svm, train_svm
+from models.catboost_model import build_catboost, train_catboost
+from models.deep_learning_model import build_keras_classifier
+from ensemble.voting import build_voting_ensemble
+from ensemble.stacking import build_stacking_ensemble
+import joblib
 
-from src.models import build_svm, build_catboost
-from src.ensemble_models import build_voting_model, build_stacking_model
+# Load data
+X, y = load_training_data('data_set_ALL_AML_train.csv', 'actual.csv')
 
-# Assume preprocessing already done
+# Preprocess
+X_train, X_val, y_train, y_val = split_data(X, y)
+preprocessor = build_preprocessor(X)
+X_train_processed = preprocessor.fit_transform(X_train)
+X_val_processed = preprocessor.transform(X_val)
+y_train_encoded, target_encoder = encode_target(y_train)
+y_val_encoded = target_encoder.transform(y_val)
 
 # Train base models
-model_svc = build_svm()
-model_cat = build_catboost()
+svm_model = train_svm(build_svm(), X_train_processed, y_train_encoded)
+cat_model = train_catboost(build_catboost(), X_train_processed, y_train_encoded, X_val_processed, y_val_encoded)
+keras_clf = build_keras_classifier(X_train_processed.shape[1])
+keras_clf.fit(X_train_processed, y_train_encoded)
 
-model_svc.fit(train_X_processed, train_y_encoded)
-model_cat.fit(train_X_processed, train_y_encoded)
+# Save preprocessor and encoders
+joblib.dump(preprocessor, 'preprocessor.joblib')
+joblib.dump(target_encoder, 'target_encoder.joblib')
 
-# keras_clf already defined and fitted
+# Ensemble models
+models_dict = {'svc': svm_model, 'cat': cat_model, 'dl': keras_clf}
 
-# Build ensembles
-voting_clf = build_voting_model(model_svc, model_cat, keras_clf)
-stacking_clf = build_stacking_model(model_svc, model_cat, keras_clf)
+voting_model = build_voting_ensemble(models_dict)
+voting_model.fit(X_train_processed, y_train_encoded)
 
-voting_clf.fit(train_X_processed, train_y_encoded)
-stacking_clf.fit(train_X_processed, train_y_encoded)
+stacking_model = build_stacking_ensemble(models_dict)
+stacking_model.fit(X_train_processed, y_train_encoded)
 
-voting_pred = voting_clf.predict(val_X_processed)
-stacking_pred = stacking_clf.predict(val_X_processed)
-
-print("Voting Classification Report\n",
-      classification_report(val_y_encoded, voting_pred))
-
-print("Stacking Classification Report\n",
-      classification_report(val_y_encoded, stacking_pred))
-
-vote_scores = cross_val_score(
-    voting_clf,
-    train_X_processed,
-    train_y_encoded,
-    cv=5,
-    scoring="accuracy"
-)
-
-stack_scores = cross_val_score(
-    stacking_clf,
-    train_X_processed,
-    train_y_encoded,
-    cv=5,
-    scoring="accuracy"
-)
-
-print("Average Voting Score:", vote_scores.mean())
-print("Average Stacking Score:", stack_scores.mean())
+# Save ensemble models
+joblib.dump(voting_model, 'voting_model.joblib')
+joblib.dump(stacking_model, 'stacking_model.joblib')
