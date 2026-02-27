@@ -1,0 +1,11 @@
+from sklearn.svm import SVC
+
+
+def build_svm():
+    return SVC(
+        kernel="linear",
+        C=0.5,
+        gamma="scale",
+        probability=True,
+        random_state=1
+    )
