@@ -1,10 +1,18 @@
+# src/models/catboost_model.py
 from catboost import CatBoostClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import classification_report
 
+def build_catboost(iterations=1000, learning_rate=0.01, depth=5):
+    return CatBoostClassifier(iterations=iterations, learning_rate=learning_rate, depth=depth, verbose=False)
 
-def build_catboost():
-    return CatBoostClassifier(
-        iterations=1000,
-        learning_rate=0.01,
-        depth=5,
-        verbose=False
-    )
+def train_catboost(model, X_train, y_train, X_val, y_val):
+    model.fit(X_train, y_train, eval_set=(X_val, y_val), use_best_model=True)
+    return model
+
+def evaluate_catboost(model, X_val, y_val, target_names):
+    preds = model.predict(X_val)
+    print('CatBoost Classification Report:\n', classification_report(y_val, preds, target_names=target_names))
+    scores = cross_val_score(model, X_val, y_val, cv=5, scoring='accuracy')
+    print('Cross-validation scores:', scores)
+    print('Average CV score:', scores.mean())
